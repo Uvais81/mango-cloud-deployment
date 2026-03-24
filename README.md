@@ -161,7 +161,7 @@ Update Hostname References:
 
 Replace all instances of openwifi.wlan.local with your domain:
 ```
-sudo find . -type f -name "*.env" -exec sed -i.bak "s|openwifi\.wlan\.local|$PUBLIC_HOSTNAME|g" {} +
+sudo find . -type f -exec sed -i "s/openwifi.wlan.local/$PUBLIC_HOSTNAME/g" {} +
 ```
 
 Run certbot command:
