@@ -3,6 +3,8 @@ volumes:
     driver: local
   postgresql_data:
     driver: local
+  grafana_data:
+    driver: local
 
 networks:
   openwifi:
@@ -281,3 +283,115 @@ services:
 #      - DYNAMIC_CONFIG_ENABLED=true
 #      - KAFKA_CLUSTERS_0_NAME=openwifi
 #      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+
+  prometheus:
+    image: routerarchitect123/ow_prometheus:latest
+    container_name: prometheus
+    profiles: ["monitoring"]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    networks:
+      - openwifi
+
+  grafana:
+    image: routerarchitect123/ow_grafana:latest
+    container_name: grafana
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    env_file:
+      - grafana.env
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - openwifi
+
+  grafana-controller:
+    image: routerarchitect123/openwifi_grafana-controller:latest
+    container_name: grafana-controller
+    restart: unless-stopped
+    environment:
+      GRAFANA_CONTAINER_NAME: grafana
+      AI_AGENT_CONTAINER_NAME: owgw-ai-agent
+      PWD: ${HOST_PROJECT_PATH}
+      COMPOSE_FILE: ${HOST_PROJECT_PATH}/docker-compose.yml
+      MONITORING_COMPOSE_PROFILE: monitoring
+      MONITORING_SERVICES: prometheus,grafana,cadvisor,node-exporter,postgres-exporter,kafka-exporter,otel-collector
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOST_PROJECT_PATH}:${HOST_PROJECT_PATH}:ro
+    networks:
+      - openwifi
+
+  cadvisor:
+    image: routerarchitect123/ow_cadvisor:latest
+    container_name: cadvisor
+    profiles: ["monitoring"]
+    ports:
+      - "8081:8080"
+    volumes:
+      - "/:/rootfs:ro"
+      - "/var/run:/var/run:rw"
+      - "/sys:/sys:ro"
+      - "/var/lib/docker/:/var/lib/docker:ro"
+    restart: unless-stopped
+    networks:
+      - openwifi
+
+  node-exporter:
+    image: routerarchitect123/ow_node-exporter:latest
+    container_name: node-exporter
+    profiles: ["monitoring"]
+    network_mode: host
+    pid: host
+    volumes:
+      - "/:/host:ro,rslave"
+    command:
+      - '--path.rootfs=/host'
+    restart: unless-stopped
+
+  postgres-exporter:
+    image: routerarchitect123/ow_postgres-exporter:latest
+    container_name: postgres-exporter
+    profiles: ["monitoring"]
+    env_file:
+      - postgres-exporter.env
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@postgresql:5432/postgres?sslmode=disable"
+    ports:
+      - "9187:9187"
+    restart: unless-stopped
+    networks:
+      - openwifi
+
+  kafka-exporter:
+    image: routerarchitect123/ow_kafka-exporter:latest
+    container_name: kafka-exporter
+    profiles: ["monitoring"]
+    command:
+      - "--kafka.server=kafka:9092"
+    ports:
+      - "9308:9308"
+    restart: unless-stopped
+    networks:
+      - openwifi
+
+  otel-collector:
+    image: routerarchitect123/ow_opentelemetry-collector:latest
+    container_name: otel-collector
+    profiles: ["monitoring"]
+    ports:
+      - "8889:8889"
+    volumes:
+      - ./otel-config.yaml:/etc/otel/config.yaml
+    command:
+      - "--config=/etc/otel/config.yaml"
+    restart: unless-stopped
+    networks:
+      - openwifi
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
