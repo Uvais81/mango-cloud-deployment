@@ -56,6 +56,7 @@ services:
       - owprov
       - owanalytics
       - owsub
+      - grafana-controller
     restart: unless-stopped
     volumes:
       - "./owgw-ui/default.conf:/etc/nginx/conf.d/default.conf"
@@ -317,13 +318,16 @@ services:
     environment:
       GRAFANA_CONTAINER_NAME: grafana
       AI_AGENT_CONTAINER_NAME: owgw-ai-agent
-      PWD: ${HOST_PROJECT_PATH}
-      COMPOSE_FILE: ${HOST_PROJECT_PATH}/docker-compose.yml
+      AI_AGENT_CONTAINERS: owgw-ai-agent,owgw-mcp-server
+      AI_AGENT_COMPOSE_PROFILE: ai-agent
+      AI_AGENT_SERVICES: mcp-server,mcp-client
+      COMPOSE_FILE: /opt/deploy/docker-compose.yml
       MONITORING_COMPOSE_PROFILE: monitoring
       MONITORING_SERVICES: prometheus,grafana,cadvisor,node-exporter,postgres-exporter,kafka-exporter,otel-collector
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${HOST_PROJECT_PATH}:${HOST_PROJECT_PATH}:ro
+      - ./grafana-controller:/app:ro
+      - ./:/opt/deploy:ro
     networks:
       - openwifi
 
@@ -395,3 +399,28 @@ services:
       - openwifi
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  mcp-server:
+    image: routerarchitect123/owgw-ai-agent_mcp-server:latest
+    container_name: owgw-mcp-server
+    profiles: ["ai-agent"]
+    env_file:
+      - ai-agent.env
+    restart: unless-stopped
+    networks:
+      - openwifi
+
+  mcp-client:
+    image: routerarchitect123/owgw-ai-agent_mcp-client:latest
+    container_name: owgw-ai-agent
+    profiles: ["ai-agent"]
+    ports:
+      - "8787:8787"
+    env_file:
+      - ai-agent.env
+    depends_on:
+      mcp-server:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - openwifi
