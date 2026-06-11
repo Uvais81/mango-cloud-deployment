@@ -406,6 +406,8 @@ services:
     profiles: ["ai-agent"]
     env_file:
       - ai-agent.env
+    volumes:
+      - "./certs:/app/certs"
     restart: unless-stopped
     networks:
       - openwifi
@@ -418,6 +420,8 @@ services:
       - "8787:8787"
     env_file:
       - ai-agent.env
+    volumes:
+      - "./certs:/app/certs"
     depends_on:
       mcp-server:
         condition: service_started
