@@ -14,6 +14,18 @@ The repository also contains a separate Docker Compose deployment to set up the 
 Config files for the microservices are generated on every startup based on the environment variables in the microservice specific env files. For an overview of the supported configuration properties have a look into these files. For an explanation of the configuration properties please see the README in the respective microservice repository.
 Be aware that local changes to the config files will be overwritten on every startup if `TEMPLATE_CONFIG` is set to `true` in the microservice env files. If you want to bind mount your own config file or make local changes, please set this variable to `false`.
 
+### AI agent deployment notes
+The AI agent is configured via `ai-agent.env` and proxied through `owgw-ui/default.conf`.
+
+- `REQUIRE_API_KEY=true` is now expected for the AI agent deployment.
+- Set a strong `AGENT_API_KEY` value in `ai-agent.env`.
+- Keep that same value in the `X-API-Key` header configured in `owgw-ui/default.conf` for the `/ai/chat` proxy, otherwise the UI chat path will return `403`.
+- Any direct request to `https://<host>:8787` must also send the same `X-API-Key` header.
+- `ALLOWED_ORIGIN` should match the UI origin. The shipped default is `https://openwifi.wlan.local`.
+- `VERIFY_TLS=false` is intentional for the default Compose deployment because the shared internal certs typically do not match the Docker DNS name `mcp-server`. Only switch it to `true` if the internal MCP server certificate and trust chain are configured for hostname verification.
+- SMTP delivery now supports `SMTP_TIMEOUT_SECONDS`, `SMTP_SEND_TIMEOUT_SECONDS`, `SMTP_MAX_RETRIES`, and `SMTP_RETRY_BACKOFF_SECONDS`.
+- The alert worker now supports `ALERT_WORKER_RESTART_DELAY_SECONDS` in addition to the existing alert interval settings.
+
 #### Required password changing on the first startup
 One important action that must be done before using the deployment is changing password for the default user in owsec as described in [owsec docs](https://github.com/Telecominfraproject/wlan-cloud-ucentralsec/tree/main#changing-default-password). Please use these docs to find the actions that must be done **after** the deployment in order to start using your deployment.
 
